@@ -18,4 +18,6 @@ urlpatterns = [
     path('groups/<int:pk>/join/', views.join_group, name='join-group'),
     # Add to app urls.py
     path('groups/<int:group_id>/discussion/', views.group_discussion, name='group-discussion'),
+    path('groups/<int:group_id>/discussion/<int:post_id>/comments/', views.add_comment, name='add-comment'),
+    path('groups/<int:pk>/', views.group_detail, name='group-detail'),
 ]

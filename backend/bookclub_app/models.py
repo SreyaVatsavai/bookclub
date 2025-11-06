@@ -3,6 +3,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+# at top with imports
+from django.conf import settings
 class Book(models.Model):
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255)
@@ -10,6 +12,8 @@ class Book(models.Model):
     description = models.TextField()
     total_pages = models.PositiveIntegerField()
     total_chapters = models.PositiveIntegerField()
+    # cover image stored in MEDIA_ROOT/book_covers/
+    cover = models.ImageField(upload_to='book_covers/', blank=True, null=True)
 
     def __str__(self):
         return self.title

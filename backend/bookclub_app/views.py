@@ -12,13 +12,33 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Book, DiscussionPost, ReadingGroup, GroupMembership
+from .models import Book, DiscussionPost, ReadingGroup, GroupMembership, Comment
 from .serializers import (
     DiscussionPostSerializer,
     UserSerializer,
     BookSerializer,
     ReadingGroupSerializer,
+    CommentSerializer,
 )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def group_detail(request, pk):
+    """Return group details including members and basic book info.
+    Only group members can view the detail.
+    """
+    try:
+        group = get_object_or_404(ReadingGroup, id=pk)
+    except ReadingGroup.DoesNotExist:
+        return Response({"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Only allow members to view group details
+    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+        return Response({"error": "Not a member of this group"}, status=status.HTTP_403_FORBIDDEN)
+
+    from .serializers import ReadingGroupDetailSerializer
+
+    return Response(ReadingGroupDetailSerializer(group).data)
 
 # ==== AUTH ====
 
@@ -125,7 +145,9 @@ def group_list_create(request):
     if request.method == "POST":
         serializer = ReadingGroupSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(creator=request.user)
+            # Create the group and automatically add creator as a member
+            group = serializer.save(creator=request.user)
+            GroupMembership.objects.create(user=request.user, group=group)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -185,3 +207,37 @@ def group_discussion(request, group_id):
     # GET: list all posts for the group
     posts = DiscussionPost.objects.filter(group=group).prefetch_related("comments")
     return Response(DiscussionPostSerializer(posts, many=True).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_comment(request, group_id, post_id):
+    """
+    Add a comment to a discussion post within a group.
+    Ensures the user is a member of the group and the post belongs to the group.
+    """
+    # Ensure group exists and user is a member
+    try:
+        group = get_object_or_404(ReadingGroup, id=group_id)
+    except ReadingGroup.DoesNotExist:
+        return Response({"error": "Group not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+        return Response({"error": "Not a member of this group"}, status=status.HTTP_403_FORBIDDEN)
+
+    # Ensure post exists and belongs to the group
+    try:
+        post = DiscussionPost.objects.get(id=post_id, group=group)
+    except DiscussionPost.DoesNotExist:
+        return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Create comment
+    serializer = CommentSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(author=request.user, post=post)
+
+        # Return the updated post (with comments) so clients can refresh the post atomically
+        post = DiscussionPost.objects.prefetch_related("comments").get(id=post.id)
+        return Response(DiscussionPostSerializer(post).data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

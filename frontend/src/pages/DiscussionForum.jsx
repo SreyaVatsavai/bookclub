@@ -23,6 +23,8 @@ export default function DiscussionForum() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
   const [loading, setLoading] = useState(true);
 
   const fetchPosts = async () => {
@@ -56,6 +58,49 @@ export default function DiscussionForum() {
       const errorMsg = err.response?.data?.error || err.response?.data?.content || 'Failed to post';
       alert(`Error: ${errorMsg}`);
       console.error('Post creation error:', err);
+    }
+  };
+
+  const handleStartReply = (postId) => {
+    setReplyingTo(postId);
+    setReplyContent('');
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setReplyContent('');
+  };
+
+  const handleSubmitReply = async (postId) => {
+    if (!replyContent.trim()) return;
+    try {
+      // Try to send reply to backend. Endpoint may vary; adjust if needed.
+      const res = await api.post(`/groups/${groupId}/discussion/${postId}/comments/`, {
+        content: replyContent.trim(),
+      });
+
+      const returned = res.data;
+
+      // If backend returned the full post (with comments), replace the post in state.
+      if (returned && Array.isArray(returned.comments)) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? returned : p)));
+      } else {
+        // Fallback: server returned only the created comment — append it
+        const createdComment = returned;
+        setPosts((prev) => prev.map((p) => {
+          if (p.id !== postId) return p;
+          const comments = Array.isArray(p.comments) ? [...p.comments] : [];
+          comments.push(createdComment);
+          return { ...p, comments };
+        }));
+      }
+
+      setReplyContent('');
+      setReplyingTo(null);
+    } catch (err) {
+      console.error('Reply creation error:', err);
+      const errorMsg = err.response?.data?.error || 'Failed to submit reply';
+      alert(`Error: ${errorMsg}`);
     }
   };
 
@@ -110,11 +155,45 @@ export default function DiscussionForum() {
                       <Typography component="span" variant="body2">
                         {post.content}
                       </Typography>
-                      {/* Comments (MVP: just show count) */}
+                      {/* Comments */}
                       {post.comments && post.comments.length > 0 && (
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                          {post.comments.length} comment(s)
-                        </Typography>
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                            {post.comments.length} comment(s)
+                          </Typography>
+                          {post.comments.map((c) => (
+                            <Paper key={c.id} sx={{ p: 1, mb: 1, bgcolor: 'background.paper' }} elevation={0}>
+                              <Typography variant="caption" color="text.secondary">
+                                {c.author_name} • {new Date(c.created_at).toLocaleString()}
+                              </Typography>
+                              <Typography variant="body2">{c.content}</Typography>
+                            </Paper>
+                          ))}
+                        </Box>
+                      )}
+                      <Button
+                        size="small"
+                        sx={{ mt: 1 }}
+                        onClick={() => handleStartReply(post.id)}
+                      >
+                        Reply
+                      </Button>
+
+                      {replyingTo === post.id && (
+                        <Paper sx={{ p: 1, mt: 1 }}>
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={2}
+                            placeholder={`Reply to ${post.author_name}...`}
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                          />
+                          <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                            <Button variant="contained" size="small" onClick={() => handleSubmitReply(post.id)}>Send Reply</Button>
+                            <Button variant="outlined" size="small" onClick={handleCancelReply}>Cancel</Button>
+                          </Box>
+                        </Paper>
                       )}
                     </>
                   }

@@ -10,6 +10,7 @@ import Register from './pages/Register.jsx';
 import BookSearch from './pages/BookSearch.jsx';
 import BookDetailPage from './pages/BookDetailPage.jsx';
 import DiscussionForum from './pages/DiscussionForum.jsx';
+import GroupView from './pages/GroupView.jsx';
 
 // ✅ Define the theme
 const theme = createTheme({
@@ -30,6 +31,7 @@ function App() {
             <Route path="/books" element={<PrivateRoute><BookSearch /></PrivateRoute>} />
             <Route path="/books/:id" element={<PrivateRoute><BookDetailPage /></PrivateRoute>} />
             <Route path="/groups/:groupId/discussion" element={<PrivateRoute><DiscussionForum /></PrivateRoute>} />
+            <Route path="/groups/:groupId/view" element={<PrivateRoute><GroupView /></PrivateRoute>} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

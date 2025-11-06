@@ -98,12 +98,24 @@ export default function Home() {
                 <List>
                   {groups.map((group) => (
                     <React.Fragment key={group.id}>
-                      <ListItem>
-                        <ListItemText
-                          primary={group.name}
-                          secondary={`${group.book_title} • ${group.start_date} to ${group.end_date}`}
-                        />
-                      </ListItem>
+                          <ListItem
+                            secondaryAction={
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => navigate(`/groups/${group.id}/view`)}
+                                sx={{ minWidth: 64 }}
+                              >
+                                View
+                              </Button>
+                            }
+                          >
+                            <ListItemText
+                              primary={group.name}
+                              secondary={`${group.book_title} • ${group.start_date} to ${group.end_date}`}
+                              sx={{ pr: 10 }}
+                            />
+                          </ListItem>
                       <Divider />
                     </React.Fragment>
                   ))}
